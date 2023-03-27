@@ -10,9 +10,13 @@ class PlayerModule(bge.types.KX_PythonComponent):
         "Walk Right" : "d",
         "Pick Object" : "e",
         "Run" : "c"
+
     }
 
     def start(self, args):
+        #Variais de propriedade
+        self.object_dist_multiplier = 0.2
+        self.pick_object_default_dist = 3
         #Variaveis 
         self.scene: bge.types.KX_Scene = bge.logic.getCurrentScene()
         self.render = bge.render
@@ -37,6 +41,19 @@ class PlayerModule(bge.types.KX_PythonComponent):
         target = origin + (fp_cam.worldOrientation * Vector([0, 0, -10]))
         return fp_cam.rayCast(target, origin, 0)
     
+    def pickedObjectDist(self, from_object: bge.types.KX_GameObject, to_object: bge.types.KX_GameObject, dist, increment: bool):
+        if from_object and to_object != None:
+            new_dist = dist
+            if increment:
+                current_dist = from_object.getDistanceTo(to_object)
+                new_dist = current_dist + dist
+                pass
+            if new_dist > self.pick_object_default_dist:
+                to_object.worldPosition = from_object.worldPosition + (from_object.worldOrientation * Vector([0, new_dist, 0]))
+                pass
+            pass
+        pass
+
     def mouseInputs(self, inputs, cam):
         key: bge.types.SCA_InputEvent
         for key in inputs:
@@ -56,20 +73,11 @@ class PlayerModule(bge.types.KX_PythonComponent):
                 print("direito")
                 pass
             elif key == bge.events.WHEELDOWNMOUSE:
+                self.pickedObjectDist(self.raycast_parent, self.picked_object, self.object_dist_multiplier*(-1), True)
                 pass
             elif key == bge.events.WHEELUPMOUSE:
-
+                self.pickedObjectDist(self.raycast_parent, self.picked_object, self.object_dist_multiplier, True)
                 pass
-        pass
-
-    def pickedObjectDist(self, from_object: bge.types.KX_GameObject, to_obejct: bge.types.KX_GameObject, dist, increment: bool):
-        if from_object and to_obejct != None:
-            if increment:
-                current_dist = from_object.getDistanceTo(to_obejct)
-                pass
-            else:
-                pass
-            pass
         pass
     
     def keyboardInputs(self, inputs):
@@ -108,7 +116,7 @@ class PlayerModule(bge.types.KX_PythonComponent):
                     if hitObject and self.item_identifier in hitObject:
                         self.picked_object = hitObject
                         self.picked_object.worldOrientation = self.raycast_parent.worldOrientation
-                        self.picked_object.worldPosition = self.raycast_parent.worldPosition + (self.raycast_parent.worldOrientation * Vector([0, 3, 0]))
+                        self.pickedObjectDist(self.raycast_parent, self.picked_object, self.pick_object_default_dist, False)
                         self.picked_object.setParent(self.raycast_parent)
                     pass
                 else:
