@@ -151,8 +151,10 @@ class PlayerModule(types.KX_PythonComponent):
                             self.picked_object = None
                             pass
                         pass
-                    elif hitObject["door"]:
-                        self.openCloseDoor(hitObject, hitObject["door"])
+                    elif "DoorModule" in hitObject.components:
+                        component: types.KX_PythonComponent = hitObject.components["DoorModule"]
+                        component.args["Openned"] = not component.args["Openned"]
+                        component.openCloseDoor()
                         pass
                     pass
             pass
