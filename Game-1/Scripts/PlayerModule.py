@@ -152,6 +152,7 @@ class PlayerModule(types.KX_PythonComponent):
                             pass
                         pass
                     elif "SlidingDoor" or "NormalDoor" in hitObject.components:
+                        print("Open door")
                         component: types.KX_PythonComponent
                         if "SlidingDoor" in hitObject.components:
                             component: types.KX_PythonComponent = hitObject.components["SlidingDoor"]
