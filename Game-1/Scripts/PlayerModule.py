@@ -14,8 +14,9 @@ class PlayerModule(types.KX_PythonComponent):
     }
 
     def start(self, args):
-        #Variais de propriedade
+        #Variais de propriedade (Finais)
         self.pick_object_dist_multiplier = 0.1
+        self.raycast_dist = 4
         self.pick_object_min_dist = 3
         self.pick_object_max_dist = 8
         self.open_doctor_door = 1.6
@@ -35,7 +36,6 @@ class PlayerModule(types.KX_PythonComponent):
         #Objetos
         self.fp_cam: types.KX_GameObject = self.scene.objects["fs_cam"]
         self.raycast_parent = self.scene.objects["cast"]
-        self.rayhit = self.scene.objects["raycast_hitPos"]
         self.active_cam = self.fp_cam
         pass
 
@@ -43,29 +43,10 @@ class PlayerModule(types.KX_PythonComponent):
         self.keyboardInputs(logic.keyboard.activeInputs)
         self.mouseInputs(logic.mouse.activeInputs, self.active_cam)
         pass
-
-    def openCloseDoor(self, door, type):
-        # Para abrir a porta, action deve ser negativo
-        action: int
-        if door["openned"]:
-            action = 1
-            door["openned"] = False
-            pass
-        else:
-            action = -1
-            door["openned"] = True
-            pass
-        if type == self.porta_normal:
-            door.worldPosition = door.applyRotation(Vector([0, 0, self.open_normal_door * action]), True)
-            pass
-        elif type == self.porta_deslizante:
-            door.worldPosition = door.applyMovement(Vector([self.open_doctor_door * action, 0, 0]), True)
-            pass
-        pass
     
     def rayCast(self, fp_cam):
         origin = fp_cam.worldPosition
-        target = origin + (fp_cam.worldOrientation * Vector([0, 0, -10]))
+        target = origin + (fp_cam.worldOrientation * Vector([0, 0, -self.raycast_dist]))
         return fp_cam.rayCast(target, origin, 0)
     
     def pickedObjectDist(self, from_object, to_object, dist, min_dist, max_dist):
@@ -138,8 +119,9 @@ class PlayerModule(types.KX_PythonComponent):
                 self.object.applyMovement(Vector([0.05, 0, 0]), True)
                 pass
             elif self.args["Pick Object"] == key_event and inputs[key].activated:
-                hitObject, hitPos, hitNormal = self.rayCast(self.fp_cam)
+                hitObject, hitPos, hitNormal = self.rayCast(self.fp_cam)     
                 if hitObject:
+                    print(hitObject)
                     if self.item_identifier in hitObject:   
                         if self.picked_object == None:
                             self.picked_object = hitObject
@@ -151,18 +133,13 @@ class PlayerModule(types.KX_PythonComponent):
                             self.picked_object = None
                             pass
                         pass
-                    elif "SlidingDoor" or "NormalDoor" in hitObject.components:
-                        print("Open door")
+                    elif len(hitObject.components) > 0:
                         component: types.KX_PythonComponent
-                        if "SlidingDoor" in hitObject.components:
-                            component: types.KX_PythonComponent = hitObject.components["SlidingDoor"]
-                        elif "NormalDoor" in hitObject.components:
-                            component: types.KX_PythonComponent = hitObject.components["NormalDoor"]
-                        else: return
-                        component.args["Openned"] = not component.args["Openned"]
-                        component.openCloseDoor()
+                        component = hitObject.components[0]
+                        component.startComponent()
                         pass
                     pass
+
             pass
         pass
 
