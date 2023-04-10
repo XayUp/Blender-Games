@@ -21,7 +21,9 @@ class PlayerModule(types.KX_PythonComponent):
         self.pick_object_max_dist = 8
         self.open_doctor_door = 1.6
         self.open_normal_door = -90
-
+        self.anim: types.KX_GameObject = self.object.children["player"]
+        self.anim.playAction("idle", 0, 305, 0, 0, 0, logic.KX_ACTION_MODE_LOOP)
+        
         #Variaveis 
         self.scene: types.KX_Scene = logic.getCurrentScene()
         self.render = render

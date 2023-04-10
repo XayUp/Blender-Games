@@ -112,7 +112,6 @@ class SlidingDoor(types.KX_PythonComponent):
         self.run_anim: bool = False #Definir True para iniciar a animacção
         self.axis = [0, 0, 0]
         self.axis_index = self.__getAxisIndex()
-        print(self.axis_index)
         pass
 
     def update(self):
@@ -164,7 +163,6 @@ class SlidingDoor(types.KX_PythonComponent):
                 move = (self.current_state_num - self.to_state_num) * self.action
                 pass
             self.axis[self.axis_index] = move * self.action
-            print(self.axis)
             self.object.applyMovement(Vector(self.axis), True)
             pass
         pass

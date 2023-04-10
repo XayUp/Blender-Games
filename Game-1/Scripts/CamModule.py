@@ -7,10 +7,8 @@ class CamModule(types.KX_PythonComponent):
     }
 
     def start(self, args):
-        print("a")
         pass
 
     def update(self):
-
         pass
     pass
