@@ -1,14 +1,25 @@
 from bge import *
+from .FuncClasses import Maths, Transform
 from collections import OrderedDict
-from mathutils import Vector
-from math import radians
+from mathutils import Vector, Euler
+from math import radians, degrees
+from .VehiclePhysics import VehiclePhysics
 
 class Wheel(types.KX_PythonComponent):
     args = OrderedDict([
-        ("wheel", {"Front Left", "Front Right", "Back Left", "Back Right"}),
-        ("Stiffness", 50.0),
-        ("Damping", 5000),
-        ("Height", 0.92)
+        ("Wheel Name", ""),
+        ("Wheel Location", {"Front", "Back"}),
+        ("Handlebar", False),
+        ("Handlebar angle", 45),
+        ("Handlebar angle velocity", 0.2),
+        ("Wheel Torque", False),
+        ("Wheel Radius (Scale)", 0.5),
+        ("Spring Stiffness", 350.0),
+        ("Spring Damping", 18000),
+        ("Spring Height", 0.5),
+        ("Spring Travel", 0.6),
+        ("Acceleration", 10.0),
+        ("Break", 1.0)
     ])
 
     def start(self, args):
@@ -16,76 +27,75 @@ class Wheel(types.KX_PythonComponent):
         self.args = args
 
         #Finais
-        self.susp_stiffness = args["Stiffness"]         # Rigidez
-        self.susp_damping  = args["Damping"]
-        self.susp_max_height = args["Height"]
-        #self.susp_min_height = 0.5         # Mola comprimida
-
-        self.pivot: types.KX_GameObject = self.object
-        self.chassi = self.pivot.parent
-        self.wheel: types.KX_GameObject = self.__startSetWheel(self.scene.addObject(self.scene.objectsInactive["roda"]), args["wheel"])
-        self.wheel_radius = self.wheel.localScale[2]
-        self.wheel.worldPosition = self.pivot.worldPosition + Vector([0, 0, -self.susp_max_height + self.wheel_radius*2])
-        self.wheel.setParent(self.pivot)
-        self.back_wheel: bool = args["wheel"] == "Back Left" or args["wheel"] == "Back Right"
-        self.front_wheel = self.back_wheel == False
-
-        self.previousLength = self.pivot.getDistanceTo(self.wheel)
+        self.keyboard_ad_axis = 0
+        self.keyboard_ws_axis = 0
+        
+        self.is_handlebar = args["Handlebar"]
+        self.handlebar_angle = radians(args["Handlebar angle"])
+        self.handlebar_velocity = args["Handlebar angle velocity"]
+        wheel_location  = args["Wheel Location"]
+        wheel_torque    = args["Wheel Torque"]
+        wheel_radius    = args["Wheel Radius (Scale)"]
+        susp_stiffness  = args["Spring Stiffness"]                            # Rigidez
+        susp_damping    = args["Spring Damping"]                              # Suavidez
+        susp_travel     = args["Spring Travel"]                               # Viagem da mola
+        susp_max_height = args["Spring Height"]                               # Comprimento máximo (Relaxado)        
+        susp_min_height = susp_max_height - susp_travel                       # Comprimento mínimo (Comprimido)
+        acceleration    = args["Acceleration"]                                # Aceleração
+        wheel_break     = args["Break"]                                       # Freio
+        
+        self.chassi: types.KX_GameObject = self.object.parent                 # Corpo do veículo
+        wheel = self.object.childrenRecursive[args["Wheel Name"]]             # Roda
+        self.wheel_axis = wheel.parent
+        self.VehiclePhysics = VehiclePhysics(self.chassi, self.object, wheel, wheel_location, wheel_torque, wheel_radius, susp_stiffness, susp_damping, susp_travel, susp_max_height, susp_min_height, acceleration, wheel_break)        
+        
         pass
 
     def update(self):
-        self.cast_touch = False
-        self.__suspensionPhysics()
-        #if self.scene.active_camera in self.chassi.children:
         self.keyboardInputs(logic.keyboard.activeInputs)
-        self.__frictionPhysics()
-        pass
-
-    def __startSetWheel(self, wheel_obj, wheel_type: str):
-        if wheel_type == "Front Left" or wheel_type == "Back Left":
-            wheel_obj.applyRotation(Vector([0, 0, radians(180)]), False)
-            pass
-        return wheel_obj
-
-    def __rayCast(self, obj, dist_x: float, dist_y: float, dist_z: float):
-        origin = obj.worldPosition
-        target = origin + (obj.worldOrientation * Vector([dist_x, dist_y, dist_z]))
-        return obj.rayCast(target, origin, 0)
-
-    def __frictionPhysics(self):       
-        if self.back_wheel:
-            velocity = self.chassi.getLinearVelocity(True)
-            self.chassi.applyImpulse(self.pivot.worldPosition, (self.pivot.worldOrientation * Vector([-velocity.x*(velocity.y/15), 0, 0])))
-        pass
-
-    def __suspensionPhysics(self):
-        hitObject, hitPos, hitNormal = self.__rayCast(self.pivot, 0, 0, -self.susp_max_height)
-        self.cast_touch = hitObject != None
-        if self.cast_touch:
-            self.wheel.worldPosition = hitPos + (self.wheel.worldOrientation * Vector([0, 0, self.wheel_radius*2]))
-            currentLenght = self.pivot.getDistanceTo(self.wheel)
-            susp_force = self.susp_stiffness * ((self.susp_max_height-(self.wheel_radius*2)) - currentLenght) + self.susp_damping * (self.previousLength - currentLenght) / logic.getAverageFrameRate()
-            self.pivot.parent.applyImpulse(self.pivot.worldPosition, Vector([0, 0, susp_force]) , False)
-            self.previousLength = currentLenght
-            pass
+        self.__handlebarAngle(self.keyboard_ad_axis)
+        self.VehiclePhysics.suspensionPhysics()
         pass
 
     def keyboardInputs(self, inputs):
         run: bool = False
         for key in inputs:
             key_event = events.EventToCharacter(key, False)
-            if key_event == "w" and self.back_wheel and self.cast_touch:
-                self.chassi.applyImpulse(self.pivot.worldPosition, (self.pivot.worldOrientation * Vector([0, 10, 0])), False)
+            self.VehiclePhysics.keyboardInput(key_event)
+            if key_event == "w":
                 pass
-            elif key_event == "s" and self.back_wheel and self.cast_touch:
-                self.chassi.applyImpulse(self.pivot.worldPosition, (self.pivot.worldOrientation * Vector([0, -10, 0])), False)
+            elif key_event == "s":
                 pass
-            elif key_event == "a" and self.front_wheel:
-                self.chassi.applyImpulse(self.pivot.worldPosition, (self.pivot.worldOrientation * Vector([-12, 0, 0])), False)
+            elif key_event == "a":
+                self.keyboard_ad_axis = 1
                 pass
-            elif key_event == "d" and self.front_wheel:
-                self.chassi.applyImpulse(self.pivot.worldPosition, (self.pivot.worldOrientation * Vector([12, 0, 0])), False)
+            elif key_event == "d":
+                self.keyboard_ad_axis = -1
                 pass
+            pass
+        pass
+
+    def __handlebarAngle(self, key_axis):
+        if self.is_handlebar:
+            z = self.object.localOrientation.to_euler().z
+            to = self.handlebar_angle * key_axis
+            increment = self.handlebar_velocity
+            if z != to:               
+                if key_axis < 0 and z > -self.handlebar_angle:   #Right
+                    if z - increment < -self.handlebar_angle:
+                        increment = self.handlebar_angle + z
+                        pass
+                    pass
+                elif key_axis > 0 and z < self.handlebar_angle: #Left
+                    if z + increment > self.handlebar_angle:
+                        increment = self.handlebar_angle - z
+                        pass
+                    pass
+                elif key_axis == 0: 
+                    if z > to: key_axis = -1
+                    elif z < to: key_axis = 1
+                    pass
+                self.object.applyRotation(Vector([0, 0, increment * key_axis * Maths.getDeltaTime()]), True)
             pass
         pass
 
@@ -93,11 +103,19 @@ class Wheel(types.KX_PythonComponent):
 
 class BikeWheel(types.KX_PythonComponent):
     args = OrderedDict([
-        ("Wheel", {"Front", "Back"}),
-        ("Final pivot", {"p_b", "p_f"}),
-        ("Stiffness", 50.0),
-        ("Damping", 5000),
-        ("Height", 0.92)
+        ("Wheel Name", ""),
+        ("Wheel Location", {"Front", "Back"}),
+        ("Handlebar", False),
+        ("Handlebar angle", 45),
+        ("Handlebar angle velocity", 0.2),
+        ("Wheel Torque", False),
+        ("Wheel Radius (Scale)", 0.5),
+        ("Spring Stiffness", 350.0),
+        ("Spring Damping", 18000),
+        ("Spring Height", 0.5),
+        ("Spring Travel", 0.6),
+        ("Acceleration", 10.0),
+        ("Break", 1.0)
     ])
 
     def start(self, args):
@@ -105,63 +123,86 @@ class BikeWheel(types.KX_PythonComponent):
         self.args = args
 
         #Finais
-        self.susp_stiffness = args["Stiffness"]         # Rigidez
-        self.susp_damping  = args["Damping"]
-        self.susp_max_height = args["Height"]
-        #self.susp_min_height = 0.5         # Mola comprimida
-
+        self.keyboard_ad_axis = 0
+        self.keyboard_ws_axis = 0
         
-        self.pivot: types.KX_GameObject = self.object
-        self.chassi: types.KX_GameObject = self.pivot.parent
-        self.final_pivot: types.KX_GameObject = self.chassi.children[args["Final pivot"]]
-        self.wheel: types.KX_GameObject = self.__startSetWheel(self.scene.addObject(self.scene.objectsInactive["roda_moto"]), args["Wheel"])
-        self.wheel_radius = self.wheel.localScale[2]
-        self.wheel.worldPosition = self.pivot.worldPosition
-        self.wheel.setParent(self.pivot)        
-        self.previousLength = self.wheel.getDistanceTo(self.final_pivot)
+        self.is_handlebar = args["Handlebar"]
+        self.handlebar_angle = radians(args["Handlebar angle"])
+        self.handlebar_velocity = args["Handlebar angle velocity"]
+        wheel_location  = args["Wheel Location"]
+        wheel_torque    = args["Wheel Torque"]
+        wheel_radius    = args["Wheel Radius (Scale)"]
+        susp_stiffness  = args["Spring Stiffness"]                            # Rigidez
+        susp_damping    = args["Spring Damping"]                              # Suavidez
+        susp_travel     = args["Spring Travel"]                               # Viagem da mola
+        susp_max_height = args["Spring Height"]                               # Comprimento máximo (Relaxado)        
+        susp_min_height = susp_max_height - susp_travel                       # Comprimento mínimo (Comprimido)
+        acceleration    = args["Acceleration"]                                # Aceleração
+        wheel_break     = args["Break"]                                       # Freio
         
-        self.back_wheel = args["Wheel"] == "Back"
+        self.chassi: types.KX_GameObject = self.object.parent                 # Corpo do veículo
+        wheel = self.object.childrenRecursive[args["Wheel Name"]]             # Roda
+        self.wheel_axis = wheel.parent
+        self.VehiclePhysics = VehiclePhysics(self.chassi, self.object, wheel, wheel_location, wheel_torque, wheel_radius, susp_stiffness, susp_damping, susp_travel, susp_max_height, susp_min_height, acceleration, wheel_break)        
         pass
 
     def update(self):
-        self.cast_touch = False
-        self.__suspensionPhysics()
         self.keyboardInputs(logic.keyboard.activeInputs)
+        self.__handlebarAngle(self.keyboard_ad_axis)
+        self.VehiclePhysics.suspensionPhysics()
+        #self.__centrifugalForce()
         pass
 
-    def __startSetWheel(self, wheel_obj, wheel_type: str):
-        if wheel_type == "Front Left" or wheel_type == "Back Left":
-            wheel_obj.applyRotation(Vector([0, 0, radians(180)]), False)
-            pass
-        return wheel_obj
-
-    def __rayCast(self, obj, dist_x: float, dist_y: float, dist_z: float):
-        origin = obj.worldPosition
-        target = origin + (obj.worldOrientation * Vector([dist_x, dist_y, dist_z]))
-        return obj.rayCast(target, origin, 0)
-
-    def __suspensionPhysics(self):
-        hitObject, hitPos, hitNormal = self.__rayCast(self.pivot, 0, 0, -self.susp_max_height)
-        self.cast_touch = hitObject != None
-        if self.cast_touch:
-            self.wheel.worldPosition = hitPos + (self.wheel.worldOrientation * Vector([0, 0, self.wheel_radius/2]))
-            currentLenght = self.wheel.getDistanceTo(self.final_pivot)
-            susp_force = self.susp_stiffness * ((self.susp_max_height) - currentLenght) + self.susp_damping * (self.previousLength - currentLenght) / logic.getAverageFrameRate()
-            self.pivot.parent.applyImpulse(self.final_pivot.worldPosition, Vector([0, 0, susp_force]) , False)
-            self.previousLength = currentLenght
-            pass
-        pass
-
-    def keyboardInputs(self, inputs):
+    def keyboardInputs(self, inputs):        
         run: bool = False
+        self.keyboard_ad_axis = 0
+        self.keyboard_ws_axis = 0
         for key in inputs:
             key_event = events.EventToCharacter(key, False)
-            if key_event == "w" and self.back_wheel and self.cast_touch:
-                self.chassi.applyImpulse(self.pivot.worldPosition, Vector([0, 10, 0]), False)
+            self.VehiclePhysics.keyboardInput(key_event)
+            if key_event == "w":
                 pass
-            elif key_event == "s" and self.back_wheel and self.cast_touch:
-                self.chassi.applyImpulse(self.pivot.worldPosition, Vector([0, -10, 0]), True)
+            elif key_event == "s":
                 pass
+            elif key_event == "a":
+                self.keyboard_ad_axis = 1
+                pass
+            elif key_event == "d":
+                self.keyboard_ad_axis = -1
+                pass
+            pass
+        pass
+
+    def __handlebarAngle(self, key_axis):
+        if self.is_handlebar:
+            z = self.object.localOrientation.to_euler().z
+            to = self.handlebar_angle * key_axis
+            increment = self.handlebar_velocity
+            if z != to:               
+                if key_axis < 0 and z > -self.handlebar_angle:   #Right
+                    if z - increment < -self.handlebar_angle:
+                        increment = self.handlebar_angle + z
+                        pass
+                    pass
+                elif key_axis > 0 and z < self.handlebar_angle: #Left
+                    if z + increment > self.handlebar_angle:
+                        increment = self.handlebar_angle - z
+                        pass
+                    pass
+                elif key_axis == 0: 
+                    if z > to: key_axis = -1
+                    elif z < to: key_axis = 1
+                    pass
+                self.object.applyRotation(Vector([0, 0, increment * key_axis * Maths.getDeltaTime()]), True)
+            pass
+        pass
+
+    def __centrifugalForce(self):
+        hitObj, hitPos, hitNormal = self.chassi.rayCast(self.chassi.worldPosition - Vector([0, 0, 5]), self.chassi)
+        angle: Euler = self.chassi.localOrientation.to_euler()
+        if angle.y != 0:
+            #apply = (self.chassi.mass * self.chassi.getLinearVelocity(True).y**2) / 1
+            #self.chassi.applyForce(Transform.rightZ(self.chassi) * Vector([apply, 0, 0]), False)
             pass
         pass
 
