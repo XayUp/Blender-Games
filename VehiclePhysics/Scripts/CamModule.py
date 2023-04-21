@@ -44,7 +44,6 @@ class ThirdPerson(types.KX_PythonComponent):
     def __colision(self):
         target = self.cam.worldPosition + Transform.up(self.cam, -self.cam.getDistanceTo(self.cam_axis) + 3)
         hitObj, hitPos, hitNormal = self.cam_axis.rayCast(target, self.cam.worldPosition + Transform.up(self.cam, -1))
-        self.scene.objects["Sphere"].worldPosition = target
         if hitObj:
             self.cam.worldPosition = hitPos - Transform.up(self.cam, -1.1)
             self.old_cam_dist = Vector(self.cam.worldPosition.xyz)

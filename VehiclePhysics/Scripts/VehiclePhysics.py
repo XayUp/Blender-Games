@@ -1,6 +1,6 @@
 from bge import *
 from mathutils import Vector
-from math import radians
+from math import radians, degrees, cos
 from .FuncClasses import Maths, Sensors, Transform
 
 class VehiclePhysics():
@@ -72,12 +72,16 @@ class VehiclePhysics():
             self.susp_force         = self.spring_force + self.damping_force                        # Força da suspenção
             
             lFx, lFy                  = self.__direction()  # Aplicar a força de direção ("Curva")
-            
-            self.susp_force_vector  = self.susp_force * Transform.up(self.wheel_axis)                  # Aplicar a força da suspensão no eixo Z da mola
+            ang = cos(degrees(self.chassi.worldOrientation.to_euler().y))
+            if ang < 0:
+                ang *= -1
+                pass
+            print(ang)
+            self.susp_force_vector  = (self.susp_force * ang) * Transform.up(self.spring)                  # Aplicar a força da suspensão no eixo Z da mola
             
             self.chassi.applyImpulse(self.spring.worldPosition, self.susp_force_vector, False)
             #self.chassi.applyImpulse(self.hitPos, lFx + lFy, False)
-            #self.__frictionPhysics(self.chassi, self.wheel_axis)
+            self.__wheelFrictionPhysics(self.chassi, self.wheel_axis)
             self.__wheelRotation()
             pass
         elif self.spring_lenght != self.susp_max_height:       # Extenda a Mola     
@@ -87,12 +91,13 @@ class VehiclePhysics():
 
     def __wheelRotation(self):
         self.wheel.applyRotation(Vector([-radians(Transform.localVelocityFrom(self.chassi, self.wheel_axis).y), 0, 0]), True)
+        pass
 
     def __extendsSprings(self):
         return self.spring.worldPosition + (self.spring.worldOrientation * Vector([0, 0, -(self.susp_max_height)]))
 
     def __direction(self) -> Vector and Vector: 
-        velocity: Vector    = Transform.localVelocityFrom(self.chassi, self.wheel_axis, self.hitPos)
+        velocity: Vector    = Transform.localVelocityFrom(self.chassi, self.wheel_axis)
         Force_x             = self.aceleration_keyboard * (self.spring_force)
         Force_y             = velocity.x * (self.spring_force)
         lFx                 = Force_x * Transform.forward(self.wheel_axis)
@@ -101,18 +106,13 @@ class VehiclePhysics():
         return lFx, lFy
         #return Vector([0, 0, 0]), Vector([0, 0, 0])
 
-    def __frictionPhysics(self, obj, point_obj):
-        old_velocity: Vector            = self.friction_velocity
-        self.friction_velocity: Vector  = Transform.localVelocityFrom(obj, point_obj) 
-        veloc_x             = self.friction_velocity.x
-        veloc_y             = self.friction_velocity.y
-        n                   = obj.mass
-        u                   = 10
-        f                   = u * n
-        speed               = veloc_x - old_velocity.x
-        if speed < 0: speed *= -1
-        Fx                  = f * veloc_x * speed * Transform.rightZ(self.wheel_axis) * Maths.getDeltaTime()
-        if veloc_x != 0:
-            obj.applyImpulse(self.hitPos, Fx)
-            pass
+    def __wheelFrictionPhysics(self, obj, point_obj):
+        velocity: Vector = Transform.localVelocityFrom(obj, self.hitPos)
+        veloc_x = velocity.x
+        veloc_y = velocity.y
+        F = -veloc_x**2 * self.spring_force * Maths.getDeltaTime()
+        #print(velocity)
+        #print("Chassi", self.chassi.getLinearVelocity(True))
+        logic.getCurrentScene().objects["Sphere"].worldPosition =  self.hitPos + Transform.rightZ(point_obj, F)
+        self.chassi.applyImpulse(obj.worldPosition - self.hitPos, Vector([F, 0, 0]), True)
         pass

@@ -56,11 +56,19 @@ class Transform():
     def upZ(obj, apply = 1) -> Vector:
         return (Transform.__normalizeOrientation(obj.worldOrientation) * Vector([0, 0, apply]))
 
-    def localVelocityFrom(obj, obj_child, point = Vector([0, 0, 0])) -> Vector:
+    def localVelocityFrom(obj, point = None) -> Vector:
+        obj_point = obj
+        if point == None:
+            point = Vector([0, 0, 0])
+            pass
+        elif type(point) == types.KX_GameObject:
+            obj_point = point
+            point = Vector(point.worldPosition.xyz)
+            pass
         world_volocity = obj.getVelocity(obj.worldPosition - point)
-        local_x = world_volocity * Transform.right(obj_child)
-        local_y = world_volocity * Transform.forward(obj_child)
-        local_z = world_volocity * Transform.up(obj_child)
+        local_x = world_volocity * Transform.right(obj_point)
+        local_y = world_volocity * Transform.forward(obj_point)
+        local_z = world_volocity * Transform.up(obj_point)
         return Vector([local_x, local_y, local_z])
     
     pass
