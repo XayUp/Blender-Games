@@ -9,5 +9,11 @@
             "command": "blender ./VehiclePhysics/untitled.blend",
             "problemMatcher": []
         }
+        {
+            "label": "Game-1",
+            "type": "shell",
+            "command": "blender ./Game-1/game1.blend",
+            "problemMatcher": []
+        }
     ]
 }
