@@ -15,20 +15,13 @@ class PlayerModule(types.KX_PythonComponent):
 
     def start(self, args):
         #Variais de propriedade (Finais)
-        self.animations = {
-            "walking":                  [0, 38],
-            "idle":                     [0, 90],
-            "start_walking":            [0, 14],
-            "simple_weapon":            [0, 0]
-            }
         self.pick_object_dist_multiplier = 0.1
         self.raycast_dist = 4
         self.pick_object_min_dist = 3
         self.pick_object_max_dist = 8
         self.open_doctor_door = 1.6
         self.open_normal_door = -90
-        self.anim: types.KX_GameObject = self.object.children["armature"]
-        self.anim.playAction("idle", self.animations["idle"][0], self.animations["idle"][1], 0, 0, 0, logic.KX_ACTION_MODE_LOOP)
+        #self.anim: types.KX_GameObject = self.object.children["armature"]
         
         #Variaveis 
         self.scene: types.KX_Scene = logic.getCurrentScene()
@@ -42,14 +35,19 @@ class PlayerModule(types.KX_PythonComponent):
         self.porta_normal = "normal"
 
         #Objetos
-        self.fp_cam: types.KX_GameObject = self.scene.objects["fs_cam"]
-        self.raycast_parent = self.scene.objects["cast"]
-        self.active_cam = self.fp_cam
+        #self.fp_cam: types.KX_GameObject = self.scene.objects["fs_cam"]
+        #self.raycast_parent = self.scene.objects["cast"]
+        #self.active_cam = self.fp_cam
+
+        # Modulos
+        self.animation = None
+        if 'AnimationClass' in self.object.components:
+            self.animation = self.object.components['AnimationClass']
         pass
 
     def update(self):
         self.keyboardInputs(logic.keyboard.activeInputs)
-        self.mouseInputs(logic.mouse.activeInputs, self.active_cam)
+        #self.mouseInputs(logic.mouse.activeInputs, self.active_cam)
         pass
     
     def rayCast(self, fp_cam):
@@ -113,42 +111,25 @@ class PlayerModule(types.KX_PythonComponent):
             elif self.args["Walk Forward"] == key_event:
                 if run:
                     self.object.applyMovement(Vector([0, 0.1, 0]), True)
-                    pass
+                    if self.animation != None: self.animation.start_run()
                 else:
-                    walk = True
                     self.object.applyMovement(Vector([0, 0.04, 0]), True)
-                    if self.anim.getActionName() != "walking":
-                        if self.anim.getActionName() != "start_walking":
-                            #self.anim.playAction("start_walking", self.animations["start_walking"][0], self.animations["start_walking"][1], 0, 0, 0, logic.KX_ACTION_MODE_PLAY)
-                            pass
-                        elif self.anim.getActionFrame() == self.animations["start_walking"][1]:
-                            #self.anim.playAction("walking", self.animations["walking"][0], self.animations["walking"][1], 0, 0, 0, logic.KX_ACTION_MODE_LOOP)                            
-                            pass                        
-                        pass
-                    pass
+                    if self.animation != None: self.animation.start_walk_forward()
                 pass
             elif self.args["Walk Backward"] == key_event:
-                walk = True
                 self.object.applyMovement(Vector([0, -0.04, 0]), True)
-                if self.anim.getActionName() != "walking":
-                    if self.anim.getActionName() != "start_walking":
-                        #self.anim.playAction("start_walking", self.animations["start_walking"][0], self.animations["start_walking"][1], 0, 0, 0, logic.KX_ACTION_MODE_PLAY)
-                        pass
-                    elif self.anim.getActionFrame() == self.animations["start_walking"][1]:
-                        #self.anim.playAction("walking", self.animations["walking"][1], self.animations["walking"][0], 0, 0, 0, logic.KX_ACTION_MODE_LOOP)                            
-                        pass                        
-                    pass
-                pass
+                if self.animation != None: self.animation.start_walk_forward()
+
             elif self.args["Walk Left"] == key_event:
                 self.object.applyMovement(Vector([-0.05, 0, 0]), True)
-                pass
+
             elif self.args["Walk Right"] == key_event:
                 self.object.applyMovement(Vector([0.05, 0, 0]), True)
-                pass
+
             elif self.args["Pick Object"] == key_event and inputs[key].activated:
                 hitObject, hitPos, hitNormal = self.rayCast(self.fp_cam)     
                 if hitObject:
-                    print(hitObject)
+                    #print(hitObject)
                     if self.item_identifier in hitObject:   
                         if self.picked_object == None:
                             self.picked_object = hitObject
@@ -166,10 +147,6 @@ class PlayerModule(types.KX_PythonComponent):
                         component.startComponent()
                         pass
                     pass
-
-            pass
-        if not walk and self.anim.getActionName() != "idle":
-            #self.anim.playAction("idle", self.animations["idle"][0], self.animations["idle"][1], 0, 0, 0, logic.KX_ACTION_MODE_LOOP)
             pass
         pass
 
